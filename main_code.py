@@ -5,19 +5,12 @@ from array import array
 from uctypes import addressof
 from gc import mem_free,collect
 
-# 640*480 resolution
-# Scanline part    Pixels    Time [µs]    32bits-Words
-# Visible area      640       25.4220        100
-# Front porch       16       0.6355          2,5
-# Sync pulse        96       3.8133          15
-# Back porch        48       1.9066          7,5
-# Whole line        800      31.7775         125
 
 
-# Possibility to change the system clock freq if needed - 125MHz (default/False) or 250MHz (True)
+
 OVCLK=False     
 
-# Routine to boost system clock
+
 @micropython.viper
 def set_freq(fclock:int)->int:
     #clock frequency to run the pico default 125MHz. Allow 100-250
@@ -38,7 +31,7 @@ def set_freq(fclock:int)->int:
     cs=FBDIV*12//(POSTDIV1*POSTDIV2)
     print('clock speed',cs,'MHz')
 
-# VGA parameters for 640x480 using 3b per pixel
+
 H_res=const(640)            
 V_res=const(480)            
 bit_per_pix=const(3)        
@@ -57,8 +50,7 @@ else:
     SM2_FREQ=100700000 
 
 
-#statemachine configuration
-#sm0 is used for H sync signal
+
 @asm_pio(set_init=PIO.OUT_HIGH, autopull=True, pull_thresh=32)
 def paral_Hsync():
     wrap_target()
@@ -78,7 +70,7 @@ def paral_Hsync():
 #     
 paral_write_Hsync = StateMachine(0, paral_Hsync,freq=SM0_FREQ, set_base=Pin(4))
 # #
-# #sm1 is used for V sync signal
+
 @asm_pio(sideset_init=(PIO.OUT_HIGH,) * 1, autopull=True, pull_thresh=32)
 def paral_Vsync():
     pull(block)                 
@@ -107,7 +99,7 @@ def paral_Vsync():
 # 
 paral_write_Vsync = StateMachine(1, paral_Vsync,freq=SM1_FREQ, sideset_base=Pin(5))
 
-#sm4 is used for RGB signal
+
 @asm_pio(out_init=(PIO.OUT_LOW,) * 3, out_shiftdir=PIO.SHIFT_RIGHT, sideset_init=(PIO.OUT_LOW,) * 3, autopull=True, pull_thresh=usable_bits)
 def paral_RGB():
     pull(block)                  
@@ -117,10 +109,8 @@ def paral_RGB():
     wait(1,irq,1)              
     label("colorout")
     out(pins,3)               
-    nop()                      [1]   
-#     nop()                            
-#     nop()                      [1] 
-#     nop()                      [1]  
+    nop()                 
+            
     jmp(x_dec,"colorout")      
     wrap()                   
     
@@ -128,8 +118,7 @@ paral_write_RGB = StateMachine(2, paral_RGB,freq=SM2_FREQ, out_base=Pin(0),sides
 
 @micropython.viper
 def configure_DMAs(nword:int, H_buffer_line_add:ptr32):
-    # RGB DMAs
-    
+   
    
     IRQ_QUIET = 0  
     RING_SEL = 0  
@@ -137,7 +126,7 @@ def configure_DMAs(nword:int, H_buffer_line_add:ptr32):
     HIGH_PRIORITY = 1
     INCR_WRITE = 0  
 
-    #Setting up the "data" DMA channel 1
+   
     TREQ_SEL = 2   
     INCR_READ = 1  
     DATA_SIZE = 2  
@@ -150,7 +139,7 @@ def configure_DMAs(nword:int, H_buffer_line_add:ptr32):
     ptr32(0x50000044)[0] = uint(0x50200018)         
     ptr32(0x50000048)[0] = nword                    
     ptr32(0x50000060)[0] = DMA_control_word         
-    #Setting up the "control" DMA channel 0 - to run the Channel 1 - Vertical Visible Area lines 
+    
     TREQ_SEL = 0x3f
     INCR_READ = 0   
     CHAIN_TO = 0   
@@ -173,7 +162,7 @@ def startsync():
     ptr32(0x50200000)[0] |= 0b111   
 
     
-#     
+   
 @micropython.viper
 def stopsync():
     ptr32(0x50000444)[0] |= 0b000011        
